@@ -1,7 +1,7 @@
 # **Enhanced Brain-Heart Connectivity as a Precursor to Reduced State Anxiety After Therapeutic Virtual Reality Immersion**
  
 ## **1. Introduction**
-This repository contains pipelines of EEG and ECG, as well as EEG-ECG coupling analyses developed to investigate the therapeutic effects of a virtual reality environment on state anxiety levels. The pipeline handles preprocessing steps and visualisation of data.
+This repository contains pipelines of EEG and ECG processing, as well as EEG-ECG coupling analyses developed to investigate the therapeutic effects of a virtual reality environment on state anxiety levels. The pipeline handles preprocessing steps and visualisation of data.
 
 The project is conducted within the Healthy Mind company and the Frontlab at the Paris Brain Institute Institut (Sorbonne University,CNRS/INSERM, Paris, FRANCE).
 
