@@ -34,14 +34,14 @@ plt.rcParams['savefig.dpi'] = 300
 # TEMPORAL PLOTS (ECG, EEG)
 
 def temporal_plot_comparison(df1, df2, region, band, participants, type, leg_pos, highlight_epoch_start=128, highlight_epoch_end=225, smoothness=2, n=27):
-    """plot to compare the average of a column of interest between zen garden and neutral city videos
+    """plot to compare the average of a column of interest between zen garden and control cities videos
 
     Parameters
     ----------
     df1 : dataframe
         zen garden dataframe
     df2 : dataframe
-        neutral city dataframe
+        control cities dataframe
     region : str
         name of the region to look at for EEG, or the metric for ECG (LF, HF, fratio)
     band : str
@@ -108,10 +108,10 @@ def temporal_plot_comparison(df1, df2, region, band, participants, type, leg_pos
                     df1['Avg_smooth'][highlight_epoch_end:] + df1['Std_smooth'][highlight_epoch_end:], 
                     color=palette[0], alpha=0.25, label='SEM - zen garden')
 
-    # CITY PLOT
-    ax.plot(df2['time'], df2['Avg_smooth'], label=f'Avg - neutral city', linewidth=2.5, color=palette[1])
+    # CONTROL CONDITION PLOT
+    ax.plot(df2['time'], df2['Avg_smooth'], label=f'Avg - control cities', linewidth=2.5, color=palette[1])
     ax.fill_between(df2['time'], df2['Avg_smooth'] - df2['Std_smooth'],
-                     df2['Avg_smooth'] + df2['Std_smooth'], color=palette[1], alpha=0.25, label=f'SEM - neutral city')
+                     df2['Avg_smooth'] + df2['Std_smooth'], color=palette[1], alpha=0.25, label=f'SEM - control cities')
 
     ax.fill_between(df1['time'][(df1['time'] >= start_time) & (df1['time'] <= end_time)],
                 df1['Avg_smooth'][(df1['time'] >= start_time) & (df1['time'] <= end_time)],
@@ -144,7 +144,7 @@ def temporal_plot_comparison(df1, df2, region, band, participants, type, leg_pos
             title_start = region
 
     # ax.set_title(f"Comparison of {region} {band_label}average between zen garden and neutral city videos ({participants} participants)", size=23, weight='bold', pad=30)
-    ax.set_title(f"{title_start} - {participants} participants", size=35, weight='bold', pad=30)
+    ax.set_title(f"midline {title_start} - {participants} participants", size=35, weight='bold', pad=30)
 
 
     ax.spines['top'].set_visible(False) # remove the Figure frame and only keep the x/y axes
@@ -159,7 +159,7 @@ def temporal_plot_comparison(df1, df2, region, band, participants, type, leg_pos
     new_order = [1, 2, 3, 4, 0]
     handles = [handles[i] for i in new_order]
     labels = [labels[i] for i in new_order]
-    ax.legend(handles, labels, loc=leg_pos, ncol=3, frameon=True, fontsize=27)
+    ax.legend(handles, labels, loc=leg_pos, ncol=3, frameon=True, fontsize=26)
 
     #plt.savefig(address_output+f"/Figures/{band}_{region}_{participants}.png", bbox_inches='tight', dpi=250) #,'Figures/'+title+'.png'
 
@@ -201,7 +201,7 @@ def violin_plots_EEG_regions(df, group, subtitle, band='alpha'):
     subplots_letters = ['a','b','c','d','e','f','g']
 
     for i, metric_name in enumerate(metrics_list):
-        violin_plots_EEG_one_region(metric_name, df_sep, subplots_letters[i], ax=axes[i], hue_labels=['Zen Garden', 'City'], band=band)
+        violin_plots_EEG_one_region(metric_name, df_sep, subplots_letters[i], ax=axes[i], hue_labels=['Zen Garden', 'Control cities'], band=band)
 
     # Adjust layout
     # plt.tight_layout()
@@ -257,10 +257,10 @@ def violin_plots_EEG_one_region(metric_name, melted_data_resp, title_letter, ax,
             ax.plot(x_pos, [cond_1_val, cond_0_val], marker='o', color=sns.color_palette("husl")[4], linestyle='-', linewidth=0.3, alpha=1, markersize=2)
 
     # Customize plot labels and title
-    ax.set_title(metric_name, weight='bold', size=17)
+    ax.set_title(metric_name, weight='bold', size=18)
     ax.set_xlabel("Condition")
-    ax.set_ylabel("Zscored Value")
-    ax.set_xticklabels(['City','Zen Garden'])
+    ax.set_ylabel("(n.u.)")
+    ax.set_xticklabels(['Control cities','Zen Garden'])
     
     
     # Set different y-axis limits based on the band
@@ -322,7 +322,7 @@ def violin_plots_staiy(df):
     lighter_color = tuple(min(1, c + 0.1) for c in palette[0])  # Adjust the factor (0.3) for lighter or darker shade
     custom_palette = [lighter_color, darker_color]
 
-    plt.figure(figsize=(11, 8))
+    fig = plt.figure(figsize=(11, 8))
 
     ax = sns.violinplot(data=df, x='group', y='score', hue='order', dodge=True, saturation=1,palette=custom_palette, linewidth=0.5)
 
@@ -366,16 +366,17 @@ def violin_plots_staiy(df):
 
     # Customize plot labels and title
     ax.set_title("Comparison of STAIY scores pre/post Zen garden, for unresponsive & responsive participants",
-                weight='bold', size=17)
-    ax.set_xlabel("Group", size=16)
-    ax.set_ylabel("STAIY score", size=16)
-    ax.set_xticklabels(['Responsive', 'Unresponsive'])
+                weight='bold', size=18, y=1.05)
+    ax.set_xlabel("Group", size=18)
+    ax.set_ylabel("STAIY score", size=18)
+    ax.set_xticklabels(['Responsive', 'Unresponsive'], size=16)
 
     ax.spines['top'].set_visible(False)  # remove the Figure frame and only keep the axes
     ax.spines['right'].set_visible(False)
     ax.grid(alpha=0.4)
 
     plt.tight_layout()
+    fig.subplots_adjust(top=0.85)
     plt.show()
     # plt.savefig(address_output+'/Figures/staiy.png', bbox_inches='tight', dpi=250)
 
@@ -472,10 +473,10 @@ def violin_plots_metrics_subplots(metric_name, melted_data_resp, title_letter, a
             x_pos = [0.1, 0.9] 
             ax.plot(x_pos, [cond_1_val, cond_0_val], marker='o', color=sns.color_palette("husl")[4], linestyle='-', linewidth=0.3, alpha=1, markersize=2) 
             
-    ax.set_title(metric_name, weight='bold', size=17)
-    ax.set_xlabel("Condition", size=15)
-    ax.set_ylabel("Zscored Value", size=15)
-    ax.set_xticklabels(['City','Zen Garden'], size=13)
+    ax.set_title(metric_name, weight='bold', size=20)
+    ax.set_xlabel("Condition", size=18)
+    ax.set_ylabel("(n.u.)", size=18)
+    ax.set_xticklabels(['Control Cities','Zen Garden'], size=18)
 
     ax.spines['top'].set_visible(False) # remove the Figure frame and only keep the axes
     ax.spines['right'].set_visible(False)
@@ -514,19 +515,20 @@ def violin_plots_staiy_subplot(df, ax, title_letter, group=None, subtitle=None, 
     # Connect dots and draw lines between conditions 0 and 1 for each ID within each group
     cond_0_val = df.loc[(df['order'] == '0')]['score'].values
     cond_1_val = df.loc[(df['order'] == '1')]['score'].values
+    print(cond_0_val, cond_1_val)
 
     ax.plot([0.1,0.9], [cond_0_val, cond_1_val], marker='o', color=sns.color_palette("husl")[4], linestyle='-', linewidth=0.3, alpha=1, markersize=2) 
 
     ax.set_title(f"STAIY {'scores of all participants' if subtitle is None else ''}", weight='bold', size=17)
-    ax.set_xlabel("Pre / post Zen Garden score", size=15)
+    ax.set_xlabel("Pre / post Zen Garden score", size=18)
     ax.set_ylabel("STAIY score", size=15)
     ax.set_ylim([5,90])
 
     ax.spines['top'].set_visible(False)  # remove the Figure frame and only keep the axes
     ax.spines['right'].set_visible(False)
     ax.grid(alpha=0.4)
-    ax.set_xticklabels(['Pre','Post'], size=13)
-    ax.text(-0.1, 1.05, title_letter, transform=ax.transAxes, fontsize=15, fontweight='bold', va='top', ha='right')
+    ax.set_xticklabels(['Pre','Post'], size=18)
+    ax.text(-0.1, 1.05, title_letter, transform=ax.transAxes, fontsize=22, fontweight='bold', va='top', ha='right')
 
 
 
@@ -551,23 +553,23 @@ def violin_plots_metrics_and_staiy(df, df_staiy, group, subtitle, old = 1):
     # Select elements using the indices to keep
     indices_to_keep = [idx for idx in range(len(axes)) if idx != 6 and idx != 8]
     axes = axes[indices_to_keep]
-    subplots_letters = ['a','b','c','d','e','f','g'] # [' ',' ',' ',' ',' ',' ',' ']
+    subplots_letters = ['a','b','c','d','e','f','g'] # 
 
     # PLOT STAIY IN SUBPLOT a.
     violin_plots_staiy_subplot(df_staiy, axes[0], subplots_letters[0], group=group, subtitle=subtitle)
-    axes[0].set_title(custom_titles[0], fontsize=14, weight='bold')
+    axes[0].set_title(custom_titles[0], fontsize=16, weight='bold')
 
     # PLOT METRICS IN OTHER SUBPLOTS
     for i, metric_name in enumerate(metrics_list):
         if i < len(axes):
             ax = axes[i+1]
-            violin_plots_metrics_subplots(metric_name, df_sep, subplots_letters[i+1], ax=ax, hue_labels=['Zen Garden', 'City'])
-            ax.set_title(custom_titles[i+1], fontsize=14, weight='bold')
+            violin_plots_metrics_subplots(metric_name, df_sep, subplots_letters[i+1], ax=ax, hue_labels=['Zen Garden', 'Control video'])
+            ax.set_title(custom_titles[i+1], fontsize=16, weight='bold')
 
             if metric_name in ['midline_alpha', 'midline_beta']:
                 ax.set_ylabel('Relative spectral power (n.u.)')
             else:
-                ax.set_ylabel('Zscored Value')
+                ax.set_ylabel('(n.u.)')
 
     plt.tight_layout(rect=[0, 0, 1, 0.95])  # Leave space for the suptitle
     plt.subplots_adjust(hspace=0.3)  # Increase spacing between rows of subplots
@@ -576,8 +578,110 @@ def violin_plots_metrics_and_staiy(df, df_staiy, group, subtitle, old = 1):
     plt.show()
 
 
+# def violin_plots_metrics_and_staiy_subgroups(df, df_staiy, group, subtitle, old = 1):
+#     custom_titles = ["STAI-Y1 scores",  "midline "+f"$\\beta$", "midline " +f"$\\alpha$", "LF", "HF", "LF/HF"]
+#     metrics_list = ['midline_beta', 'midline_alpha', 'LF_avg', 'HF_avg', 'Fratio_avg']
+
+#     if group is None :
+#         df_sep = df
+#     else:
+#         df_sep = df.loc[df['group'] == group]
+
+#     if old:
+#         fig, axes = plt.subplots(nrows=3, ncols=3, figsize=(15, 15))
+#         axes[2, 0].axis('off')
+#         axes[2, 2].axis('off')
+#     else:
+#         fig, axes = plt.subplots(nrows=2, ncols=3, figsize=(15, 15))
+
+#     axes = axes.flatten()
+
+#     # Select elements using the indices to keep
+#     indices_to_keep = [idx for idx in range(len(axes)) if idx != 6 and idx != 8]
+#     axes = axes[indices_to_keep]
+#     subplots_letters = [' ',' ',' ',' ',' ',' ',' '] #['a','b','c','d','e','f','g'] # 
+
+#     # PLOT STAIY IN SUBPLOT a.
+#     violin_plots_staiy_subplot(df_staiy, axes[0], subplots_letters[0], group=group, subtitle=subtitle)
+#     axes[0].set_title(custom_titles[0], fontsize=16, weight='bold')
+
+#     # PLOT METRICS IN OTHER SUBPLOTS
+#     for i, metric_name in enumerate(metrics_list):
+#         if i < len(axes):
+#             ax = axes[i+1]
+#             violin_plots_metrics_subplots(metric_name, df_sep, subplots_letters[i+1], ax=ax, hue_labels=['Zen Garden', 'Control video'])
+#             ax.set_title(custom_titles[i+1], fontsize=16, weight='bold')
+
+#             if metric_name in ['midline_alpha', 'midline_beta']:
+#                 ax.set_ylabel('Relative spectral power (n.u.)')
+#             else:
+#                 ax.set_ylabel('(n.u.)')
+
+#     plt.tight_layout(rect=[0, 0, 1, 0.95])  # Leave space for the suptitle
+#     plt.subplots_adjust(hspace=0.3)  # Increase spacing between rows of subplots
+#     plt.suptitle('Comparison for '+subtitle+' participants', y = 1.01, weight='bold',size=19)
+#     # plt.savefig(address_output+'/Figures/violinplots_'+subtitle+'.png', bbox_inches='tight', dpi=250)
+#     plt.show()
+
+def violin_plots_metrics_and_staiy_subgroups(df, df_staiy, group, subtitle, old=1):
+    custom_titles = ["STAI-Y1 scores",  "midline " + f"$\\beta$", "midline " + f"$\\alpha$", "LF", "HF", "LF/HF"]
+    metrics_list = ['midline_beta', 'midline_alpha', 'LF_avg', 'HF_avg', 'Fratio_avg']
+
+    if group is None:
+        df_sep = df
+    else:
+        df_sep = df.loc[df['group'] == group]
+
+    if old:
+        fig, axes = plt.subplots(nrows=3, ncols=3, figsize=(15, 15))
+        axes[2, 0].axis('off')
+        axes[2, 2].axis('off')
+    else:
+        fig, axes = plt.subplots(nrows=2, ncols=3, figsize=(15, 15))
+
+    axes = axes.flatten()
+
+    # Select elements using the indices to keep
+    indices_to_keep = [idx for idx in range(len(axes)) if idx != 6 and idx != 8]
+    axes = axes[indices_to_keep]
+    subplots_letters = [' ', ' ', ' ', ' ', ' ', ' ', ' '] 
+
+    # PLOT STAIY IN SUBPLOT a.
+    violin_plots_staiy_subplot(df_staiy, axes[0], subplots_letters[0], group=group, subtitle=subtitle)
+    axes[0].set_title(custom_titles[0], fontsize=20, weight='bold')
+
+    # Apply x-axis label adjustments to add padding in the STAIY subplot
+    axes[0].set_xticks([0, 1])  # Assuming Zen Garden = 0 and Control video = 1
+    axes[0].set_xticklabels(['  Pre score  ', '  Post score  '], rotation=0, ha='center')  # Add whitespace padding
+    axes[0].tick_params(axis='x', pad=10)  # Adjust pad for more spacing if needed
+    axes[0].tick_params(axis='y', labelsize=18)
+    axes[0].set_ylabel("STAI-Y1 score", fontsize=20)
 
 
+    # PLOT METRICS IN OTHER SUBPLOTS
+    for i, metric_name in enumerate(metrics_list):
+        if i < len(axes):
+            ax = axes[i+1]
+            violin_plots_metrics_subplots(metric_name, df_sep, subplots_letters[i+1], ax=ax, hue_labels=['  Control cities  ', '  Zen Garden  '])
+            ax.set_title(custom_titles[i+1], fontsize=22, weight='bold')
+
+            if metric_name in ['midline_alpha', 'midline_beta']:
+                ax.set_ylabel('Relative spectral power (n.u.)', fontsize=20)
+            else:
+                ax.set_ylabel('(n.u.)', fontsize=20)
+
+            # Add padding between the x-axis labels "Condition" and the individual labels
+            ax.set_xticks([0, 1])
+            ax.set_xticklabels(['  Control cities  ', '  Zen Garden  '], rotation=0, ha='center', fontsize=18)
+            ax.tick_params(axis='x', pad=10)
+            ax.set_xlabel("Condition", fontsize=20)
+            ax.tick_params(axis='y', labelsize=16)
+
+
+    plt.tight_layout(rect=[0, 0, 1, 0.95])  # Leave space for the suptitle
+    plt.subplots_adjust(hspace=0.3)  # Increase spacing between rows of subplots
+    plt.suptitle('Comparison for ' + subtitle + ' participants', y=1.01, weight='bold', size=19)
+    plt.show()
 
 
 
