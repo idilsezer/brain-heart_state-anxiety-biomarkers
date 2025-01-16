@@ -6,11 +6,8 @@ import numpy as np
 
 import video_analyses
 
-# import warnings
-# warnings.filterwarnings("ignore")
 
-
-################### RETRIEVE EEG DATA ###################
+################### EEG DATA PROCESSING ###################
 
 # def read_and_preprocess_csv(file_path):
 #     df = pd.read_csv(file_path)
@@ -70,11 +67,68 @@ import video_analyses
 
 #     return averages_df
 
+################### EEG RETRIEVAL AND PROCESSING ###################
 
+# def process_participant_data(participants, address_CENIR, regions):
+#     # Initialize dictionaries to store results
+#     alpha_averages_dict = {}
+#     beta_averages_dict = {}
+#     theta_averages_dict = {}
+#     lgamma_averages_dict = {}
+#     alpha_theta_ratio_avg_dict = {}
 
+#     # Iterate over each participant
+#     for i in participants:
+#         # Fetch the .csv files of all participants
+#         sub_id = str(i).zfill(3)  # Fill with putting 0 in front of the number
+#         alpha_file = address_CENIR + 'Results_PSD/PSD_time_3D_Sub' + sub_id + '_Alpha.csv'
+#         beta_file = address_CENIR + 'Results_PSD/PSD_time_3D_Sub' + sub_id + '_Beta.csv'
+#         theta_file = address_CENIR + 'Results_PSD/PSD_time_3D_Sub' + sub_id + '_Theta.csv'
+#         lgamma_file = address_CENIR + 'Results_PSD/PSD_time_3D_Sub' + sub_id + '_Lgamma.csv'
+        
+#         # Read and preprocess the data
+#         EEG_df_sub_alpha = read_and_preprocess_csv(alpha_file)
+#         EEG_df_sub_beta = read_and_preprocess_csv(beta_file)
+#         EEG_df_sub_theta = read_and_preprocess_csv(theta_file)
+#         EEG_df_sub_lgamma = read_and_preprocess_csv(lgamma_file)
 
+#         # Calculate total power
+#         EEG_df_sub_total_power = calculate_total_power(EEG_df_sub_alpha, EEG_df_sub_beta, EEG_df_sub_theta, EEG_df_sub_lgamma)
+        
+#         # Calculate relative power for each band
+#         EEG_df_sub_alpha_relative_power = calculate_relative_power(EEG_df_sub_alpha, EEG_df_sub_total_power)
+#         EEG_df_sub_beta_relative_power = calculate_relative_power(EEG_df_sub_beta, EEG_df_sub_total_power)
+#         EEG_df_sub_theta_relative_power = calculate_relative_power(EEG_df_sub_theta, EEG_df_sub_total_power)
+#         EEG_df_sub_lgamma_relative_power = calculate_relative_power(EEG_df_sub_lgamma, EEG_df_sub_total_power)
 
-################### EEG PROCESSING ###################
+#         # Calculate alpha / theta ratio
+#         EEG_df_sub_alpha_theta_ratio = calculate_alpha_theta_ratio(EEG_df_sub_alpha_relative_power, EEG_df_sub_theta_relative_power)
+
+#         # Calculate averages by region
+#         alpha_averages_df = calculate_averages_by_region(EEG_df_sub_alpha_relative_power, regions, bandname='alpha')
+#         beta_averages_df = calculate_averages_by_region(EEG_df_sub_beta_relative_power, regions, bandname='beta')
+#         theta_averages_df = calculate_averages_by_region(EEG_df_sub_theta_relative_power, regions, bandname='theta')
+#         lgamma_averages_df = calculate_averages_by_region(EEG_df_sub_lgamma_relative_power, regions, bandname='lgamma')
+#         alpha_theta_ratio_avg_df = calculate_averages_by_region(EEG_df_sub_alpha_theta_ratio, regions, bandname='alpha_theta_ratio')
+
+#         # Remove leading zeros from sub_id for the dictionary key
+#         sub_id = str(i).zfill(2)
+
+#         # Store the averages in the corresponding dictionaries with sub_id as key
+#         alpha_averages_dict[sub_id] = alpha_averages_df
+#         beta_averages_dict[sub_id] = beta_averages_df
+#         theta_averages_dict[sub_id] = theta_averages_df
+#         lgamma_averages_dict[sub_id] = lgamma_averages_df
+#         alpha_theta_ratio_avg_dict[sub_id] = alpha_theta_ratio_avg_df
+
+#     # Return the dictionaries
+#     return {
+#         'alpha_averages': alpha_averages_dict,
+#         'beta_averages': beta_averages_dict,
+#         'theta_averages': theta_averages_dict,
+#         'lgamma_averages': lgamma_averages_dict,
+#         'alpha_theta_ratio_avg': alpha_theta_ratio_avg_dict
+#     }
 
 
 def calculate_average_by_ID_all(alpha_averages, alpha_averages_2D, beta_averages, beta_averages_2D, segmentation, relaxed_IDs):
@@ -193,9 +247,6 @@ def calculate_grouped_by_region_statistics(dataframe, bandname, IDs):
     return grouped_data
 
 
-
-
-
 ################### ECG PROCESSING ###################
 
 def calculate_average_by_ID_all_ECG(data3D, data2D):
@@ -278,8 +329,6 @@ def divide_ECG_into_groups(df_3D, df_2D, subgroups, ECG_param):
     return unresponsive_df_3D, unresponsive_df_2D, relaxed_df_3D, relaxed_df_2D
 
 
-
-
 ################### OTHER PROCESSING ###################
 
 def means_by_region(df, group_option='all'):
@@ -318,27 +367,76 @@ def means_by_region(df, group_option='all'):
     return result_df
 
 
+def melt_EEG_data(df, bandname, id_vars, calculate_mean=False):
+    """
+    Generalized function to melt EEG data and optionally calculate means.
+
+    Args:
+        df (pd.DataFrame): The input DataFrame.
+        bandname (str): The bandname to dynamically generate columns for melting.
+        id_vars (list): List of columns to retain as identifiers during melting.
+        calculate_mean (bool): Whether to calculate means after melting.
+
+    Returns:
+        pd.DataFrame: The melted DataFrame, optionally with means calculated.
+    """
+    # Dynamically generate the columns to melt based on the bandname
+    columns_to_melt = [
+        f"frontal_{bandname}",
+        f"temporal_{bandname}",
+        f"central_{bandname}",
+        f"parietal_{bandname}",
+        f"occipital_{bandname}",
+        f"midline_{bandname}"
+    ]
+
+    # Melt the DataFrame
+    melted = df.melt(
+        id_vars=id_vars,         # Identifier columns
+        value_vars=columns_to_melt,  # Columns to melt
+        var_name='variable',     # Name for the new "variable" column
+        value_name='value'       # Name for the new "value" column
+    )
+
+    if calculate_mean:
+        # Calculate means based on id_vars + 'variable'
+        melted = (
+            melted.groupby(id_vars + ['variable'], as_index=False)['value']
+            .mean()
+            .sort_values(by=id_vars + ['variable'])  # Ensure consistent sorting
+        )
+        # Round to six decimal places for readability
+        melted['value'] = melted['value'].round(6)
+
+    return melted
+
+def process_EEG_data_violin(df, bandname):
+    # Specific implementation for the first function
+    return melt_EEG_data(df, bandname, id_vars=['ID', 'condition', 'group'], calculate_mean=False)
+
+def process_EEG_for_topoplot(df, bandname):
+    # Specific implementation for the second function
+    return melt_EEG_data(df, bandname, id_vars=['condition', 'group'], calculate_mean=True)
 
 
 
-################### TOPOPLOTS ###################
+######## CALCULATE CONTRASTS BETWEEN CONDITIONS FOR TOPOMAP PLOTS ########
 
-
-def extract_contrast_values(df, group_number, band_name):
+def extract_contrast_values(df, group_number, bandname):
     """
     Extract contrast values for specified group and band name from a DataFrame.
 
     Parameters:
-    - df: DataFrame containing beta or alpha contrasts.
+    - df: DataFrame containing beta or high alpha contrasts.
     - group_number: The group number (0 or 1) to filter the DataFrame.
-    - band_name: The band name ('beta' or 'alpha') to adjust variable names.
+    - bandname: The band name ('beta' or 'high alpha') to adjust variable names.
 
     Returns:
-    - A dictionary with contrast values for different regions.
+    - A DataFrame with contrast values for different regions.
     """
-    # Ensure band_name is valid
-    if band_name not in ['beta', 'alpha']:
-        raise ValueError("Invalid band_name. Must be 'beta' or 'alpha'.")
+    # Ensure bandname is valid
+    if bandname not in ['beta', 'high_alpha']:
+        raise ValueError("Invalid band name. Must be 'beta' or 'high_alpha'.")
 
     # Filter the DataFrame based on the group number
     contrasts_group = df[df['group'] == group_number].copy(deep=True)
@@ -352,13 +450,14 @@ def extract_contrast_values(df, group_number, band_name):
     else:
         raise KeyError("Columns 0 or 1 are missing from the DataFrame.")
     
-    # Adjust variable names based on band_name
+    # Adjust variable names based on band name
     variable_names = {
-        'central_value': f'central_{band_name}',
-        'frontal_value': f'frontal_{band_name}',
-        'occipital_value': f'occipital_{band_name}',
-        'parietal_value': f'parietal_{band_name}',
-        'temporal_value': f'temporal_{band_name}'
+        'central_value': f'central_{bandname}',
+        'frontal_value': f'frontal_{bandname}',
+        'occipital_value': f'occipital_{bandname}',
+        'parietal_value': f'parietal_{bandname}',
+        'temporal_value': f'temporal_{bandname}',
+        'midline_value': f'midline_{bandname}'
     }
     
     # Convert the DataFrame to a dictionary
@@ -370,5 +469,40 @@ def extract_contrast_values(df, group_number, band_name):
         for region, var_name in variable_names.items()
     }
     
-    # Return the extracted values
-    return extracted_values
+    # Convert the extracted values into a DataFrame
+    extracted_df = pd.DataFrame([extracted_values])
+
+    # Return the extracted DataFrame
+    return extracted_df
+
+
+################### remove outlier brain-heart calculation ###################
+
+def remove_outliers(df, variable_col='variable', ID_column='ID', value_col='value'):
+    def is_outlier(s):
+        Q1 = s.quantile(0.05)
+        Q3 = s.quantile(0.95)
+        IQR = Q3 - Q1
+        lower_bound = Q1 - 1.5 * IQR
+        upper_bound = Q3 + 1.5 * IQR
+        return ~((s >= lower_bound) & (s <= upper_bound))
+
+    # Apply outlier detection per variable group
+    df['is_outlier'] = df.groupby(variable_col)[value_col].transform(is_outlier)
+
+    # Print rows that are actual outliers
+    outliers = df[df['is_outlier'] == True]
+    if not outliers.empty:
+        print("Aberrant data detected (outliers):")
+        print(outliers)
+
+    # Identify IDs associated with outliers
+    outlier_ids = df.loc[df['is_outlier'] == True, ID_column].unique()
+
+    # Remove rows where the ID matches any outlier ID
+    df_cleaned = df[~df[ID_column].isin(outlier_ids)].copy()
+
+    # Drop the helper column
+    df_cleaned.drop(columns=['is_outlier'], inplace=True)
+
+    return df_cleaned

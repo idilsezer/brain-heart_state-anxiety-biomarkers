@@ -13,15 +13,12 @@ from scipy.stats import wilcoxon, pearsonr, spearmanr
 from statsmodels.stats.multitest import multipletests
 # import statsmodels.formula.api as smf
 # import statsmodels.api as sm
+import matplotlib.patches as patches
 
 
 import video_analyses
 import mne
 
-# import warnings
-# warnings.filterwarnings("ignore")
-
-# FOR NATURE COMMUNICATIONS GUIDELINES
 plt.rcParams['font.family'] = 'sans-serif'
 plt.rcParams['font.sans-serif'] = ['Arial']
 plt.rcParams['figure.dpi'] = 300
@@ -167,152 +164,6 @@ def temporal_plot_comparison(df1, df2, region, band, participants, type, leg_pos
 
 
 
-
-
-
-
-
-
-################### VIOLIN EEG DATA (REGIONS) ###################
-
-def violin_plots_EEG_regions(df, group, subtitle, band='alpha'):
-    # PLOT ALL THE REGIONS FOR THE DESIRED BAND
-
-    if group is None:
-        df_sep = df
-    else:
-        df_sep = df.loc[df['group'] == group]
-
-    metrics_list = df_sep['variable'].unique()  # Use df_sep instead of df to get unique metrics in the filtered dataframe
-
-    num_metrics = len(metrics_list)
-    num_cols = 3  # Set the number of columns for subplots
-    num_rows = (num_metrics + num_cols - 1) // num_cols  # Calculate the number of rows required
-
-    fig, axes = plt.subplots(nrows=num_rows, ncols=num_cols, figsize=(15, 10))
-
-    # Turn off the extra subplots if they exceed the number of metrics
-    if num_rows * num_cols > num_metrics:
-        for i in range(num_metrics, num_rows * num_cols):
-            axes.flatten()[i].axis('off')
-
-    axes = axes.flatten()[:num_metrics]  # Flatten and take only the required number of subplots
-    
-    subplots_letters = ['a','b','c','d','e','f','g']
-
-    for i, metric_name in enumerate(metrics_list):
-        violin_plots_EEG_one_region(metric_name, df_sep, subplots_letters[i], ax=axes[i], hue_labels=['Zen Garden', 'Control cities'], band=band)
-
-    # Adjust layout
-    # plt.tight_layout()
-    plt.tight_layout(rect=[0, 0, 1, 0.95])  # Leave space for the suptitle
-    plt.subplots_adjust(hspace=0.3)  # Increase spacing between rows of subplots
-    plt.suptitle('Comparison for '+subtitle+' participants', y=1.01, weight='bold',size=19)
-    #plt.savefig(address_output+'/Figures/violinplots_'+subtitle+'.png', bbox_inches='tight', dpi=250)
-    plt.show()
-
-
-def violin_plots_EEG_one_region(metric_name, melted_data_resp, title_letter, ax, hue_labels, band='alpha'):
-    # PLOT ONE REGION FOR THE DESIRED BAND (called by the function above)
-
-    sns.set(style="white")
-    # Filter the melted_data for the current metric
-    metric_data = melted_data_resp.loc[melted_data_resp['variable'] == metric_name]
-
-    # Convert 'condition' to string type
-    metric_data['condition'] = metric_data['condition'].astype(str)
-    palette = sns.color_palette("Set2")
-    palette_inv = palette[:2][::-1] # to inverse colours
-
-    ax = sns.violinplot(data=metric_data, x='condition', y='value',order=['1','0'], dodge=True, saturation=1,
-                        palette=palette_inv, linewidth=0.5, ax=ax)
-    
-    # Customize violin plots
-    colors = []
-    for collection in ax.collections:
-        if isinstance(collection, PolyCollection):
-            colors.append(collection.get_facecolor())
-            collection.set_edgecolor(colors[-1])
-            collection.set_facecolor(to_rgba(colors[-1], alpha=0.4))  # change transparency of background
-
-    # Adjust the lines
-    if len(ax.lines) == 2 * len(colors):  # suppose inner=='quartile'
-        for lin1, lin2, color in zip(ax.lines[::2], ax.lines[1::2], colors):
-            lin1.set_color(color)
-            lin2.set_color(color)
-            lin1.set_linewidth(2)  # boxplot's stick width
-            lin2.set_linewidth(8)  # boxplot width
-
-    # Connect dots and draw lines between conditions 0 and 1 for each ID within each group
-    for i in range(len(metric_data)):
-        id_val = metric_data.iloc[i]['ID']
-        cond_0_val = metric_data.loc[(metric_data['ID'] == id_val) & (metric_data['condition'] == '0')]['value'].values
-        cond_1_val = metric_data.loc[(metric_data['ID'] == id_val) & (metric_data['condition'] == '1')]['value'].values
-
-        if len(cond_0_val) > 0 and len(cond_1_val) > 0:  # Ensure both conditions have values
-            cond_0_val = cond_0_val[0]  # Take the first value
-            cond_1_val = cond_1_val[0]  # Take the first value
-
-            x_pos = [0.1, 0.9]  # Adjust x-coordinates for dot alignment
-            ax.plot(x_pos, [cond_1_val, cond_0_val], marker='o', color=sns.color_palette("husl")[4], linestyle='-', linewidth=0.3, alpha=1, markersize=2)
-
-    # Customize plot labels and title
-    ax.set_title(metric_name, weight='bold', size=18)
-    ax.set_xlabel("Condition")
-    ax.set_ylabel("(n.u.)")
-    ax.set_xticklabels(['Control cities','Zen Garden'])
-    
-    
-    # Set different y-axis limits based on the band
-    # if band == 'alpha':
-    #     ax.set_ylim([0.125, 0.315])
-    # elif band == 'beta':
-    #     ax.set_ylim([0.25, 0.35])
-    if band == 'alpha':
-        ax.set_ylim([-6,6]) #before: -6,5
-    elif band == 'beta':
-        ax.set_ylim([-5, 5]) #before: -4,5
-
-    ax.spines['top'].set_visible(False)  # remove the Figure frame and only keep the axes
-    ax.spines['right'].set_visible(False)
-
-    ax.grid(alpha=0.4)
-
-    # TEST FOR SUBPLOTS LETTERS a, b, c ...
-    ax.text(-0.1, 1.05, title_letter, transform=ax.transAxes, fontsize=15, fontweight='bold', va='top', ha='right')
-
-    # Calculate Wilcoxon signed-rank test p-values
-    p_values = []
-    for region in metric_data['variable'].unique():
-        region_data = metric_data[metric_data['variable'] == region]
-        _, p_val = wilcoxon(region_data[region_data['condition'] == '0']['value'],
-                             region_data[region_data['condition'] == '1']['value'])
-        p_values.append(p_val)
-
-    # Apply False Discovery Rate (FDR) correction to p-values
-    corrected_p_values = multipletests(p_values, method='fdr_bh')[1]
-
-    # Determine significance levels based on corrected p-values
-    significance_levels = ['***' if p < 0.001 else '**' if p < 0.01 else '*' if p < 0.05 else 'n.s.' for p in corrected_p_values]
-
-    # Annotate violin plots with significance levels ## COMMENTED
-    # for i, label in enumerate(significance_levels):
-    #     if band == 'alpha':
-    #         #ax.text(i, 0.3, label, ha='center', va='center', fontweight='bold', color='black')
-    #         ax.text(i, 4, label, ha='center', va='center', fontweight='bold', color='black')
-    #     if band == 'beta':
-    #         #ax.text(i, 0.345, label, ha='center', va='center', fontweight='bold', color='black')
-    #         ax.text(i, 4, label, ha='center', va='center', fontweight='bold', color='black')
-
-
-
-
-
-
-
-
-
-
 ################### VIOLIN STAIY COMPARISON ###################
 
 def violin_plots_staiy(df):
@@ -382,20 +233,26 @@ def violin_plots_staiy(df):
 
 
 def plot_baseline_staiy(df, group=None, subtitle=None):
+
+    palette = sns.color_palette("Set2")
     if group is not None:
         df = df.loc[df['group'] == group]
 
     sns.set(style="white")
-    palette = sns.color_palette("Set2")
+
+    plt.figure(figsize=(5,6))
+    # palette = sns.color_palette("Set2")
+    # lighter_color = tuple(min(1, c + 0.22) for c in palette[0])  # Adjust the factor (0.3) for lighter or darker shade
+    # custom_palette = [lighter_color, palette[0]]
     darker_color = tuple(min(1, c - 0.4) for c in palette[0])  # Adjust the factor (0.3) for lighter or darker shade
     lighter_color = tuple(min(1, c + 0.1) for c in palette[0])  # Adjust the factor (0.3) for lighter or darker shade
     custom_palette = [lighter_color, darker_color]
-
-    plt.figure(figsize=(11, 8))
-
-    ax = sns.violinplot(data=df, y='before', x='group', dodge=True, saturation=1,
+    
+    ax = sns.violinplot(data=df, y='baseline', x='group', dodge=True, saturation=1,
                         palette=custom_palette, linewidth=0.5) #inner_kws=dict(box_width=15, whis_width=2)
 
+
+    # Customize violin plots
     colors = []
     for collection in ax.collections:
         if isinstance(collection, PolyCollection):
@@ -413,16 +270,20 @@ def plot_baseline_staiy(df, group=None, subtitle=None):
 
     # Connect dots and draw lines between conditions 0 and 1 for each ID within each group
     # for i in range(len(df)):
-    cond_0_val = df.loc[(df['group'] == '0')]['before'].values
-    cond_1_val = df.loc[(df['group'] == '1')]['before'].values
+    cond_0_val = df.loc[(df['group'] == '0')]['baseline'].values
+    cond_1_val = df.loc[(df['group'] == '1')]['baseline'].values
 
     ax.plot([0.1,0.9], [cond_0_val, cond_1_val], marker='o', color=sns.color_palette("husl")[4], linestyle='-', linewidth=0.3, alpha=1, markersize=2) 
 
+    # Customize plot labels and title
     if subtitle is not None:
         ax.set_title("STAI-Y1 scores of " + subtitle + " participants", weight='bold')
     else:
         ax.set_title("baseline STAIY scores of groups", weight='bold')
     ax.set_xlabel("STAI-Y1 baseline for each group")
+    ax.set_xticks([0, 1])
+    ax.set_xticklabels(['Responsive participants', 'Unresponsive participants'])
+
     ax.set_ylabel("STAI-Y1 score")
     ax.set_ylim([5,90])
 
@@ -476,7 +337,7 @@ def violin_plots_metrics_subplots(metric_name, melted_data_resp, title_letter, a
     ax.set_title(metric_name, weight='bold', size=20)
     ax.set_xlabel("Condition", size=18)
     ax.set_ylabel("(n.u.)", size=18)
-    ax.set_xticklabels(['Control Cities','Zen Garden'], size=18)
+    ax.set_xticklabels(['Control cities','Zen garden'], size=18)
 
     ax.spines['top'].set_visible(False) # remove the Figure frame and only keep the axes
     ax.spines['right'].set_visible(False)
@@ -515,13 +376,12 @@ def violin_plots_staiy_subplot(df, ax, title_letter, group=None, subtitle=None, 
     # Connect dots and draw lines between conditions 0 and 1 for each ID within each group
     cond_0_val = df.loc[(df['order'] == '0')]['score'].values
     cond_1_val = df.loc[(df['order'] == '1')]['score'].values
-    print(cond_0_val, cond_1_val)
 
     ax.plot([0.1,0.9], [cond_0_val, cond_1_val], marker='o', color=sns.color_palette("husl")[4], linestyle='-', linewidth=0.3, alpha=1, markersize=2) 
 
     ax.set_title(f"STAIY {'scores of all participants' if subtitle is None else ''}", weight='bold', size=17)
-    ax.set_xlabel("Pre / post Zen Garden score", size=18)
-    ax.set_ylabel("STAIY score", size=15)
+    ax.set_xlabel("Pre / post Zen garden score", size=18)
+    ax.set_ylabel("STAI-Y1 score", size=15)
     ax.set_ylim([5,90])
 
     ax.spines['top'].set_visible(False)  # remove the Figure frame and only keep the axes
@@ -577,52 +437,6 @@ def violin_plots_metrics_and_staiy(df, df_staiy, group, subtitle, old = 1):
     # plt.savefig(address_output+'/Figures/violinplots_'+subtitle+'.png', bbox_inches='tight', dpi=250)
     plt.show()
 
-
-# def violin_plots_metrics_and_staiy_subgroups(df, df_staiy, group, subtitle, old = 1):
-#     custom_titles = ["STAI-Y1 scores",  "midline "+f"$\\beta$", "midline " +f"$\\alpha$", "LF", "HF", "LF/HF"]
-#     metrics_list = ['midline_beta', 'midline_alpha', 'LF_avg', 'HF_avg', 'Fratio_avg']
-
-#     if group is None :
-#         df_sep = df
-#     else:
-#         df_sep = df.loc[df['group'] == group]
-
-#     if old:
-#         fig, axes = plt.subplots(nrows=3, ncols=3, figsize=(15, 15))
-#         axes[2, 0].axis('off')
-#         axes[2, 2].axis('off')
-#     else:
-#         fig, axes = plt.subplots(nrows=2, ncols=3, figsize=(15, 15))
-
-#     axes = axes.flatten()
-
-#     # Select elements using the indices to keep
-#     indices_to_keep = [idx for idx in range(len(axes)) if idx != 6 and idx != 8]
-#     axes = axes[indices_to_keep]
-#     subplots_letters = [' ',' ',' ',' ',' ',' ',' '] #['a','b','c','d','e','f','g'] # 
-
-#     # PLOT STAIY IN SUBPLOT a.
-#     violin_plots_staiy_subplot(df_staiy, axes[0], subplots_letters[0], group=group, subtitle=subtitle)
-#     axes[0].set_title(custom_titles[0], fontsize=16, weight='bold')
-
-#     # PLOT METRICS IN OTHER SUBPLOTS
-#     for i, metric_name in enumerate(metrics_list):
-#         if i < len(axes):
-#             ax = axes[i+1]
-#             violin_plots_metrics_subplots(metric_name, df_sep, subplots_letters[i+1], ax=ax, hue_labels=['Zen Garden', 'Control video'])
-#             ax.set_title(custom_titles[i+1], fontsize=16, weight='bold')
-
-#             if metric_name in ['midline_alpha', 'midline_beta']:
-#                 ax.set_ylabel('Relative spectral power (n.u.)')
-#             else:
-#                 ax.set_ylabel('(n.u.)')
-
-#     plt.tight_layout(rect=[0, 0, 1, 0.95])  # Leave space for the suptitle
-#     plt.subplots_adjust(hspace=0.3)  # Increase spacing between rows of subplots
-#     plt.suptitle('Comparison for '+subtitle+' participants', y = 1.01, weight='bold',size=19)
-#     # plt.savefig(address_output+'/Figures/violinplots_'+subtitle+'.png', bbox_inches='tight', dpi=250)
-#     plt.show()
-
 def violin_plots_metrics_and_staiy_subgroups(df, df_staiy, group, subtitle, old=1):
     custom_titles = ["STAI-Y1 scores",  "midline " + f"$\\beta$", "midline " + f"$\\alpha$", "LF", "HF", "LF/HF"]
     metrics_list = ['midline_beta', 'midline_alpha', 'LF_avg', 'HF_avg', 'Fratio_avg']
@@ -662,7 +476,7 @@ def violin_plots_metrics_and_staiy_subgroups(df, df_staiy, group, subtitle, old=
     for i, metric_name in enumerate(metrics_list):
         if i < len(axes):
             ax = axes[i+1]
-            violin_plots_metrics_subplots(metric_name, df_sep, subplots_letters[i+1], ax=ax, hue_labels=['  Control cities  ', '  Zen Garden  '])
+            violin_plots_metrics_subplots(metric_name, df_sep, subplots_letters[i+1], ax=ax, hue_labels=['  Control cities  ', '  Zen garden  '])
             ax.set_title(custom_titles[i+1], fontsize=22, weight='bold')
 
             if metric_name in ['midline_alpha', 'midline_beta']:
@@ -672,7 +486,7 @@ def violin_plots_metrics_and_staiy_subgroups(df, df_staiy, group, subtitle, old=
 
             # Add padding between the x-axis labels "Condition" and the individual labels
             ax.set_xticks([0, 1])
-            ax.set_xticklabels(['  Control cities  ', '  Zen Garden  '], rotation=0, ha='center', fontsize=18)
+            ax.set_xticklabels(['  Control cities  ', '  Zen garden  '], rotation=0, ha='center', fontsize=18)
             ax.tick_params(axis='x', pad=10)
             ax.set_xlabel("Condition", fontsize=20)
             ax.tick_params(axis='y', labelsize=16)
@@ -685,30 +499,163 @@ def violin_plots_metrics_and_staiy_subgroups(df, df_staiy, group, subtitle, old=
 
 
 
+def plot_metric_separate_regions(metric_name, melted_data_resp, title_letter, ax, hue_labels, band='alpha'):
+    sns.set(style="white")
+    # Filter the melted_data for the current metric
+    metric_data = melted_data_resp.loc[melted_data_resp['variable'] == metric_name]
+
+    # Convert 'condition' to string type
+    metric_data['condition'] = metric_data['condition'].astype(str)
+    palette = sns.color_palette("Set2")
+    palette_inv = palette[:2][::-1] # to inverse colours
+
+    ax = sns.violinplot(data=metric_data, x='condition', y='value', order=['1','0'], dodge=True, saturation=1,
+                        palette=palette_inv, linewidth=0.5, ax=ax)
+    
+    # Customize violin plots
+    colors = []
+    for collection in ax.collections:
+        if isinstance(collection, PolyCollection):
+            colors.append(collection.get_facecolor())
+            collection.set_edgecolor(colors[-1])
+            collection.set_facecolor(to_rgba(colors[-1], alpha=0.4))  # change transparency of background
+
+    # Adjust the lines
+    if len(ax.lines) == 2 * len(colors):  # suppose inner=='quartile'
+        for lin1, lin2, color in zip(ax.lines[::2], ax.lines[1::2], colors):
+            lin1.set_color(color)
+            lin2.set_color(color)
+            lin1.set_linewidth(2)  # boxplot's stick width
+            lin2.set_linewidth(8)  # boxplot width
+
+    # Connect dots and draw lines between conditions 0 and 1 for each ID within each group
+    for i in range(len(metric_data)):
+        id_val = metric_data.iloc[i]['ID']
+        cond_0_val = metric_data.loc[(metric_data['ID'] == id_val) & (metric_data['condition'] == '0')]['value'].values
+        cond_1_val = metric_data.loc[(metric_data['ID'] == id_val) & (metric_data['condition'] == '1')]['value'].values
+
+        if len(cond_0_val) > 0 and len(cond_1_val) > 0:  # Ensure both conditions have values
+            cond_0_val = cond_0_val[0]  # Take the first value
+            cond_1_val = cond_1_val[0]  # Take the first value
+
+            x_pos = [0.1, 0.9]  # Adjust x-coordinates for dot alignment
+            ax.plot(x_pos, [cond_1_val, cond_0_val], marker='o', color=sns.color_palette("husl")[4], linestyle='-', linewidth=0.3, alpha=1, markersize=2)
+
+    # Customize plot labels and title
+    metric_title = metric_name.replace('_', ' ')
+    metric_title = metric_title.replace("alpha", "\u03B1").replace("beta", "\u03B2")  # Replace 'alpha' and 'beta' with symbols
+    ax.set_title(metric_title, weight='bold', fontsize=18)
+    ax.set_xlabel("Condition", fontsize=18)
+    ax.set_ylabel("Relative spectral power")
+
+    # Set xtick labels
+    ax.set_xticklabels(['Control cities','Zen garden'], fontsize=16)
+    
+    # Set different y-axis limits based on the band
+    if band == 'high_alpha':
+        ax.set_ylim([0.1, 0.25]) 
+        ax.set_ylabel("Relative spectral power high α", fontsize=18)  # Use alpha symbol
+    elif band == 'beta':
+        ax.set_ylim([0.24, 0.355]) 
+        ax.set_ylabel("Relative spectral power β", fontsize=18)  # Use beta symbol
+
+    ax.spines['top'].set_visible(False)  # remove the Figure frame and only keep the axes
+    ax.spines['right'].set_visible(False)
+
+    ax.grid(alpha=0.4)
+
+     # Increase size of y-axis ticks
+    ax.tick_params(axis='y', labelsize=16)  
+
+    # TEST FOR SUBPLOTS LETTERS a, b, c ...
+    ax.text(-0.1, 1.05, title_letter, transform=ax.transAxes, fontsize=15, fontweight='bold', va='top', ha='right')
 
 
-################### TOPOPLOTS ###################
+################### VIOLIN EEG DATA (REGIONS) ###################
 
-def plot_individual_topomap(regions, frontal_value, temporal_value, central_value, parietal_value, occipital_value, midline_value, vlim):
+def violin_plot_EEG_regions(df, group, subtitle, band='alpha'):
+    if group is None:
+        df_sep = df
+    else:
+        df_sep = df.loc[df['group'] == group]
+
+    metrics_list = df_sep['variable'].unique()  # Use df_sep instead of df to get unique metrics in the filtered dataframe
+
+    # Remove the 'midline_beta' metric if the band is 'beta'
+    if band == 'beta' and 'midline_beta' in metrics_list:
+        metrics_list = [m for m in metrics_list if m != 'midline_beta']
+
+    num_metrics = len(metrics_list)
+    num_cols = 3  # Set the number of columns for subplots
+    num_rows = (num_metrics + num_cols - 1) // num_cols  # Calculate the number of rows required
+
+    fig, axes = plt.subplots(nrows=num_rows, ncols=num_cols, figsize=(15, 12))
+
+    # Turn off the extra subplots if they exceed the number of metrics
+    if num_rows * num_cols > num_metrics:
+        for i in range(num_metrics, num_rows * num_cols):
+            axes.flatten()[i].axis('off')
+
+    axes = axes.flatten()[:num_metrics]  # Flatten and take only the required number of subplots
+    
+    subplots_letters = ['a','b','c','d','e','f','g']
+
+    for i, metric_name in enumerate(metrics_list):
+        plot_metric_separate_regions(metric_name, df_sep, subplots_letters[i], ax=axes[i], hue_labels=['Zen Garden', 'Control cities'], band=band)
+
+                # Check if it's the third subplot (index 2), and adjust its y-axis
+        if group==1 and band == 'beta' and i == 2:
+             axes[i].set_ylim(0.23, 0.46)  # Set the specific y-axis for the third plot
+        
+                        # Check if it's the third subplot (index 2), and adjust its y-axis
+        if group==1 and band == 'high_alpha' and i == 2:
+             axes[i].set_ylim(0.1, 0.25)  # Set the specific y-axis for the third plot
+
+    # Adjust layout
+    plt.tight_layout()
+    plt.subplots_adjust(top=0.888, hspace=0.4, wspace=0.4)  # Adjust the top parameter to add space for the suptitle
+    plt.suptitle('Region values in ' + subtitle + ' participants', y=0.99, weight='bold', size=20)
+    plt.show()
+
+
+
+
+def plot_contrast_topomap(regions, region_values_df, vlim, title):
     """
     Creates and displays an EEG topomap with specified region values.
     
     Arguments:
     - regions: dict containing lists of channel names for each region.
-    - frontal_value, temporal_value, central_value, parietal_value, occipital_value, midline_value: values to assign to each region.
+    - region_values_df: DataFrame containing the contrast values for each region.
     - vlim: tuple defining the color scale limits.
-    - cmap: colormap used for the topomap.
-    - figsize: figure size.
+    - title: title of the topomap, str.
     """
-
+    # Ensure the region values DataFrame contains the necessary columns
+    required_columns = ['frontal_value', 'temporal_value', 'central_value', 'parietal_value', 'occipital_value', 'midline_value']
+    
+    for col in required_columns:
+        if col not in region_values_df.columns:
+            raise ValueError(f"Missing expected column: {col} in the region values DataFrame.")
+    
+    # Extract individual region values from the DataFrame
+    frontal_value = region_values_df['frontal_value'].iloc[0]
+    temporal_value = region_values_df['temporal_value'].iloc[0]
+    central_value = region_values_df['central_value'].iloc[0]
+    parietal_value = region_values_df['parietal_value'].iloc[0]
+    occipital_value = region_values_df['occipital_value'].iloc[0]
+    midline_value = region_values_df['midline_value'].iloc[0]
+    
+    # Create MNE info object
     signal_info = mne.create_info(
         regions['frontal'] + regions['temporal'] + regions['central'] + regions['parietal'] + regions['occipital'] + regions['midline'], 
         250, ch_types='eeg'
     )
     
+    # Set the montage for the EEG channels
     ten_twenty_montage = mne.channels.make_standard_montage('easycap-M1')
     signal_info.set_montage(ten_twenty_montage)
     
+    # Prepare the list of values for the regions
     values = (
         [frontal_value] * len(regions['frontal']) +
         [temporal_value] * len(regions['temporal']) +
@@ -718,10 +665,216 @@ def plot_individual_topomap(regions, frontal_value, temporal_value, central_valu
         [midline_value] * len(regions['midline'])
     )
     
-    fig, ax = plt.subplots(figsize=(10, 6)) 
+    # Plot the topomap
+    #fig, ax = plt.subplots(figsize=(20, 17)) 
+    fig, ax = plt.subplots(figsize=(5, 4)) 
+
+    im, _ = mne.viz.plot_topomap(values, signal_info, axes=ax, show=False, vlim=vlim, cmap='coolwarm', contours=0, sensors=True)
+     
+    # Add a color bar with improved size and formatting
+    cbar = plt.colorbar(im, ax=ax, orientation='vertical', shrink=0.7, aspect=20, pad=0.05)
+    cbar.ax.tick_params(labelsize=12)  # Adjust tick label font size
+    cbar.set_label('Spectral power difference (n.u.)', fontsize=12)  # Add a label for the color bar
+
+    # Adjust the border thickness of the color bar
+    cbar.outline.set_linewidth(1)  # Adjust the rectangle thickness
     
-    im, _ = mne.viz.plot_topomap(values, signal_info, axes=ax, show=False, vlim=vlim, cmap='coolwarm', contours=0)
-    
-    plt.colorbar(im, ax=ax, orientation='vertical', fraction=0.046, pad=0.04, format='%.2f')
+    #plt.colorbar(im, ax=ax, orientation='vertical', fraction=0.046, pad=0.04, format='%.4f')
     plt.tight_layout()
+    plt.title(title)
+    plt.show()
+
+
+def plot_topomap_condition(df, regions, group, condition, bandname, vlim, title):
+    """
+    Plot EEG topomap for a specific group and condition using the given DataFrame.
+
+    Arguments:
+    - df: DataFrame containing the EEG data for different conditions.
+    - group: The group number (0 or 1).
+    - condition: The condition number (0 or 1).
+    - regions: Dictionary of region names and corresponding channel names.
+    - band_name: The frequency band (e.g., 'beta', 'high_alpha').
+    - vlim: Tuple defining the color scale limits.
+    - title: Title for the plot.
+    """
+    
+    # Filter the DataFrame for the specific group and condition
+    df_condition = df[(df['group'] == group) & (df['condition'] == condition)]
+    
+    # Extract condition values for each region based on band_name
+    values = []
+    for region in ['frontal', 'temporal', 'central', 'parietal', 'occipital', 'midline']:
+        region_name = f"{region}_{bandname}"  # Creates names like 'frontal_high_alpha'
+        value = df_condition[df_condition['variable'] == region_name]['value'].values
+        values.append(value[0] if value.size > 0 else None)
+    
+    # Extract individual region values from the DataFrame
+    frontal_value = df_condition[df_condition['variable'] == f'frontal_{bandname}']['value'].iloc[0]
+    temporal_value = df_condition[df_condition['variable'] == f'temporal_{bandname}']['value'].iloc[0]
+    central_value = df_condition[df_condition['variable'] == f'central_{bandname}']['value'].iloc[0]
+    parietal_value = df_condition[df_condition['variable'] == f'parietal_{bandname}']['value'].iloc[0]
+    occipital_value = df_condition[df_condition['variable'] == f'occipital_{bandname}']['value'].iloc[0]
+    midline_value = df_condition[df_condition['variable'] == f'midline_{bandname}']['value'].iloc[0]
+
+        # Create MNE info object
+    signal_info = mne.create_info(
+        regions['frontal'] + regions['temporal'] + regions['central'] + regions['parietal'] + regions['occipital'] + regions['midline'], 
+        250, ch_types='eeg'
+    )
+    
+    # Set the montage for the EEG channels
+    ten_twenty_montage = mne.channels.make_standard_montage('easycap-M1')
+    signal_info.set_montage(ten_twenty_montage)
+    
+    # Prepare the list of values for the regions
+    values = (
+        [frontal_value] * len(regions['frontal']) +
+        [temporal_value] * len(regions['temporal']) +
+        [central_value] * len(regions['central']) +
+        [parietal_value] * len(regions['parietal']) +
+        [occipital_value] * len(regions['occipital']) +
+        [midline_value] * len(regions['midline'])
+    )
+    
+    # Plot the topomap
+    fig, ax = plt.subplots(figsize=(5, 4))
+    im, _ = mne.viz.plot_topomap(values, signal_info, axes=ax, show=False, vlim=vlim, cmap='coolwarm', contours=0)
+
+    # Add a color bar with improved size and formatting
+    cbar = plt.colorbar(im, ax=ax, orientation='vertical', shrink=0.7, aspect=20, pad=0.05)
+    cbar.ax.tick_params(labelsize=12)  # Adjust tick label font size
+    cbar.set_label('Relative spectral power (n.u.)', fontsize=12)  # Add a label for the color bar
+
+    # Adjust the border thickness of the color bar
+    cbar.outline.set_linewidth(1)  # Adjust the rectangle thickness
+    
+    # Add color bar
+    #plt.colorbar(im, ax=ax, orientation='vertical', fraction=0.046, pad=0.04, format='%.3f')
+    
+    # Add title
+    ax.set_title(title)
+    
+    # Show plot
+    plt.tight_layout()
+    plt.show()
+
+
+    # Brain-heart coupling plots:
+
+def plot_one_bh_coefficient(metric_name, melted_data, title_letter, ax, hue_labels):
+    sns.set_style(style="white")
+
+    # Set font
+    plt.rcParams['font.family'] = 'Helvetica'
+    plt.rcParams.update({'font.size': 12})
+
+    # Filter the melted_data for the current metric
+    metric_data = melted_data.loc[melted_data['variable'] == metric_name]
+
+    # Convert 'condition' to string type
+    metric_data['condition'] = metric_data['condition'].astype(str)
+
+    # Define the palette
+    palette = sns.color_palette("Set2")
+    palette_inv = palette[:4][::-1]  # Reverse colors for palette
+
+    # Create violin plot
+    sns.violinplot(
+        data=metric_data,
+        x='group',
+        y='value',
+        hue='condition',
+        hue_order=["1", "0"],
+        dodge=True,
+        saturation=1,
+        palette=palette_inv,
+        linewidth=0.5,
+        ax=ax,
+    )
+
+    # Customize violin plot colors
+    colors = []
+    for collection in ax.collections:
+        if isinstance(collection, PolyCollection):
+            colors.append(collection.get_facecolor())
+            collection.set_edgecolor(colors[-1])
+            collection.set_facecolor(to_rgba(colors[-1], alpha=0.4))  # Adjust transparency
+
+    # Customize lines
+    if len(ax.lines) == 2 * len(colors):  # Suppose inner=='quartile'
+        for lin1, lin2, color in zip(ax.lines[::2], ax.lines[1::2], colors):
+            lin1.set_color(color)
+            lin2.set_color(color)
+            lin1.set_linewidth(2)  # Boxplot stick width
+            lin2.set_linewidth(8)  # Boxplot width
+
+    # Draw connecting lines between conditions 0 and 1 for each ID within each group
+    for group_num in metric_data['group'].unique():
+        group_data = metric_data.loc[metric_data['group'] == group_num]
+        for i in range(len(group_data)):
+            id_val = group_data.iloc[i]['ID']
+            cond_0_val = group_data.loc[(group_data['ID'] == id_val) & (group_data['condition'] == '0')]['value'].values
+            cond_1_val = group_data.loc[(group_data['ID'] == id_val) & (group_data['condition'] == '1')]['value'].values
+
+            x_pos = [group_num - 0.15, group_num + 0.15]  # Adjust x-coordinates
+            ax.plot(
+                x_pos,
+                [cond_1_val, cond_0_val],
+                marker='o',
+                color=sns.color_palette("husl")[4],
+                linestyle='-',
+                linewidth=0.3,
+                alpha=1,
+                markersize=2,
+            )
+
+    # Adjust legend
+    legend = ax.get_legend()
+    if legend:
+        for i, (h, label) in enumerate(zip(legend.legendHandles, hue_labels)):
+            ax.legend_.get_texts()[i].set_text(label)
+
+    # Customize plot labels and title
+    ax.set_title(metric_name, weight='bold')
+    ax.set_xlabel("Group")
+    ax.set_ylabel("Coefficient value (n.u.)")
+    ax.set_xticklabels(['Responsive', 'Unresponsive'])
+    ax.legend_.set_frame_on(True)
+
+    # Remove unnecessary plot elements
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+
+    if metric_name != "B2LF":  # Only keep the first legend
+        ax.get_legend().remove()
+
+    ax.grid(alpha=0.2)
+
+    # Add subplot letter
+    ax.text(-0.08, 1.05, title_letter, transform=ax.transAxes, fontsize=15, fontweight='bold', va='top', ha='right')
+
+
+def generate_brain_heart_coupling_plots(melted_data, figsize=(10, 10)):
+    # List of metrics
+    metrics_list = melted_data['variable'].unique()
+
+    # Generate subplots
+    fig, axes = plt.subplots(nrows=2, ncols=2, figsize=figsize)
+
+    # Flatten axes and remove unused ones if needed
+    axes = axes.flatten()
+
+    # Define subplot letters
+    subplots_letters = ['a', 'b', 'c', 'd', 'e', 'f']
+
+    # Generate and display individual plots for each metric
+    for i, metric_name in enumerate(metrics_list):
+        if i < len(axes):  # Skip any extra subplots beyond the number of metrics
+            plot_one_bh_coefficient(metric_name, melted_data, subplots_letters[i], ax=axes[i], hue_labels=['Control cities','Zen garden'])
+
+    # Adjust layout
+    plt.tight_layout()
+
+    # Show the plot
     plt.show()
