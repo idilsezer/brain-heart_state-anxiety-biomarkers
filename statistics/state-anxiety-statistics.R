@@ -31,25 +31,23 @@ library(readr)
 df_physio = read_csv("../data/videos_all_metrics_for_stats.csv")
 
 
-## create melted df based on df_physio:
+## create melted df:
 df_melted <- df_physio %>%
-  select(ID, condition, LF_avg, HF_avg, Fratio_avg, midline_alpha, midline_beta, group) %>%  # Select relevant columns, including 'group'
+  select(ID, condition, LF_avg, HF_avg, Fratio_avg, midline_alpha, midline_beta, group) %>%
   pivot_longer(cols = c(LF_avg, HF_avg, Fratio_avg, midline_alpha, midline_beta), 
                names_to = "variable", 
-               values_to = "value") # Add the 'group' column based on 'condition'
+               values_to = "value")
 
-# View the result
 head(df_melted)
 
 means_df <- df_melted %>%
-  group_by(variable, condition) %>%       # Group by variable and condition
+  group_by(variable, condition) %>%       
   summarise(
-    mean = mean(value, na.rm = TRUE),     # Calculate mean
-    std = sd(value, na.rm = TRUE)         # Calculate standard deviation
+    mean = mean(value, na.rm = TRUE),     
+    std = sd(value, na.rm = TRUE)         
   ) %>%
-  arrange(variable, condition)            # Arrange the result for better readability
+  arrange(variable, condition)            
 
-# View the final means dataframe
 print(means_df)
 #write.csv(df_melted, "df_physio_melted.csv", row.names = FALSE)
 
@@ -60,37 +58,30 @@ df_normalized <- cbind(df_normalized, condition = df_physio$condition, ID = df_p
 df_normalized <- as.data.frame(df_normalized)
 df_normalized$condition <- as.factor(df_normalized$condition)
 
-#metrics_columns <- c("LF_avg", "HF_avg", "Fratio_avg", "tonic_mean", "phasic_mean", "midline_alpha", "midline_beta")
 metrics_columns <- c("LF_avg", "HF_avg", "Fratio_avg", "midline_alpha", "midline_beta")
 
-# Convert metrics columns to numeric
 df_normalized[, metrics_columns] <- lapply(df_normalized[, metrics_columns], as.numeric)
 
 
 ##### CHECK NORMALITY DISTRIBUTION
-# Assuming df_normalized has been loaded and scaled as described in your code
 
-# Extracting the metrics columns
 metrics_columns <- c("LF_avg", "HF_avg", "Fratio_avg", "midline_alpha", "midline_beta")
-
-# Convert metrics columns to numeric
 df_normalized[, metrics_columns] <- lapply(df_normalized[, metrics_columns], as.numeric)
 
 # Shapiro-Wilk test for normality
 shapiro_results <- lapply(df_normalized[, metrics_columns], shapiro.test)
 
 # Q-Q plots
-par(mfrow = c(2, 4))  # Setting up a 2x4 grid for Q-Q plots
+par(mfrow = c(2, 4))
 for (i in 1:length(metrics_columns)) {
   qqnorm(df_normalized[, metrics_columns[i]], main = paste("Q-Q Plot for", metrics_columns[i]))
   qqline(df_normalized[, metrics_columns[i]], col = "red")
 }
 
-# Print Shapiro-Wilk test results
 names(shapiro_results) <- metrics_columns
 print(shapiro_results)
 
-########### APPLY WILCOXON SIGNED RANKS BECAUSE NON NORMAL DISTRIBUTION
+########### APPLY WILCOXON SIGNED RANKS BECAUSE NON NORMAL DISTRIBUTION ##############
 
 ### With test statistic, effect size, confidence intervals
 
@@ -101,27 +92,25 @@ library(effsize)
 
 # Initialize a list to store Wilcoxon signed-rank test results
 wilcox_results <- lapply(metrics_columns, function(metric) {
-  # Convert the current metric's column to numeric and remove NAs
   condition_0 <- na.omit(as.numeric(unlist(df_physio[df_physio$condition == 0, metric])))
   condition_1 <- na.omit(as.numeric(unlist(df_physio[df_physio$condition == 1, metric])))
   
-  # Calculate sample size
+  # Sample size
   n <- length(condition_0)
   
-  # Perform Wilcoxon signed-rank test
+  # Wilcoxon signed-rank test
   set.seed(123) # set random seed to fix permutation randomness in case of ties
   test_result <- wilcox.test(condition_0, condition_1, paired = TRUE, conf.int = TRUE)
   
   # Calculate Cliff's delta
   cliff_delta <- cliff.delta(condition_0, condition_1)
   
-  # Return a list with all the calculated statistics
+  # List with all statistical metrics
   list(
     test_result = test_result,
     sample_size = n,
     effect_size = cliff_delta$estimate,
     effect_size_ci = cliff_delta$conf.int
-    #conf_int = test_result$conf.int
   )
 })
 
@@ -139,23 +128,17 @@ results_df <- do.call(rbind, lapply(names(wilcox_results), function(metric) {
     effect_size = result$effect_size,
     effect_size_ci_lower = result$effect_size_ci[1],
     effect_size_ci_upper = result$effect_size_ci[2]
-    #conf_int_lower = result$conf_int[1],
-    #conf_int_upper = result$conf_int[2]
   )
 }))
 
-# Adjust p-values using different methods
-#results_df$bonferroni <- p.adjust(results_df$p_value, method = "bonferroni")
-#results_df$holm <- p.adjust(results_df$p_value, method = "holm")
+# Adjust p-values using FDR
 results_df$fdr_corrected_pvalue <- p.adjust(results_df$p_value, method = "fdr")
 
-# Print the results
 print("Results for all participants:")
 print(results_df)
 
 
-##### Within group comparison with test statistic, effect size, confidence intervals
-
+##### Within group comparison with test statistic, effect size, confidence intervals #########
 
 # Ensure effsize package is installed and loaded
 if (!requireNamespace("effsize", quietly = TRUE)) {
@@ -163,12 +146,10 @@ if (!requireNamespace("effsize", quietly = TRUE)) {
 }
 library(effsize)
 
-# Add group column to df_normalized
 df_normalized <- cbind(df_normalized, group = df_physio$group)
 df_normalized$group <- as.factor(df_normalized$group)
 
-## calculate mean and SD
-
+## Mean and SD
 means_group_condition <- df_normalized %>%
   pivot_longer(
     cols = where(is.numeric),             # Select only numeric columns
@@ -182,26 +163,25 @@ means_group_condition <- df_normalized %>%
   ) %>%
   arrange(variable, condition, group)       # Arrange the results for clarity
 
-# View the results
 print(means_group_condition)
 
 # Initialize a list to store Wilcoxon signed-rank test results within each group
 wilcox_results_within_group <- lapply(unique(df_normalized$group), function(group) {
   lapply(metrics_columns, function(metric) {
-    # Filter and remove NAs for the current metric within the current group
+    
     condition_0 <- na.omit(df_normalized[df_normalized$condition == 0 & df_normalized$group == group, metric])
     condition_1 <- na.omit(df_normalized[df_normalized$condition == 1 & df_normalized$group == group, metric])
     
-    # Calculate sample size
+    # Sample size
     n <- length(condition_0)
     
-    # Perform Wilcoxon signed-rank test
+    # Wilcoxon signed-rank test
     test_result <- wilcox.test(condition_0, condition_1, paired = TRUE, conf.int = TRUE)
     
-    # Calculate Cliff's delta effect size
+    # Cliff's delta effect size
     cliff_delta <- cliff.delta(condition_0, condition_1)
     
-    # Return a list with all the calculated statistics
+    # List with all the calculated statistics
     list(
       test_result = test_result,
       sample_size = n,
@@ -277,10 +257,10 @@ set.seed(123)
 data_order_0 <- filter(stai, order == 0)
 data_order_1 <- filter(stai, order == 1)
 
-# Join the data on "Participant"
+# Join data on "Participant"
 paired_data <- inner_join(data_order_0, data_order_1, by = "Participant", suffix = c(".0", ".1"))
 
-# Perform the Wilcoxon signed-rank test (paired test)
+# Wilcoxon signed-rank test (paired test)
 wilcox_result <- wilcox.test(paired_data$score.0, paired_data$score.1, paired = TRUE)
 
 # Test statistic (W) and p-value from the Wilcoxon test
@@ -292,19 +272,16 @@ n <- length(paired_data$score.0)  # Sample size
 z_value <- qnorm(wilcox_result$p.value / 2)  # Approximate Z-value
 effect_size_r <- z_value / sqrt(n)  # Effect size (r)
 
-# To get a confidence interval for the effect size (r), we can use bootstrapping
-# We'll use the `boot` package for this. Alternatively, if you'd like a simple CI, we could use the standard error approach.
+# bootstrapping
 if (!require(boot)) install.packages("boot")
 library(boot)
 
-# Define a function for bootstrapping the effect size
+# function for bootstrapping the effect size
 bootstrap_effect_size <- function(data, indices) {
-  # Resample the data
-  resampled_data <- data[indices, ]
-  # Recompute Wilcoxon test on the resampled data
+  resampled_data <- data[indices, ] # Resample the data
+  # Recompute Wilcoxon
   resampled_wilcox <- wilcox.test(resampled_data$score.0, resampled_data$score.1, paired = TRUE)
-  # Return the effect size (r) based on the resampled data
-  resampled_z <- qnorm(resampled_wilcox$p.value / 2)
+  resampled_z <- qnorm(resampled_wilcox$p.value / 2) # Return the effect size (r) based on the resampled data
   return(resampled_z / sqrt(n))
 }
 
@@ -314,14 +291,15 @@ bootstrap_results <- boot(paired_data, bootstrap_effect_size, R = 1000)
 # Get confidence intervals for effect size (r)
 effect_size_ci <- boot.ci(bootstrap_results, type = "perc")$percent[4:5]  # 2.5% and 97.5% percentiles
 
-# Print the results
+# Results
 cat(sprintf(
   "Wilcoxon Test (p=%.4f, W=%d, r=%.2f, 95%% CI [%.2f, %.2f])\n", 
   p_value, test_statistic, effect_size_r, effect_size_ci[1], effect_size_ci[2]
 ))
 
+###########################################
 ### STAI-Y1 SCORES IN EACH SUBGROUP #######
-###################
+###########################################
 
 # Subset the data by group
 group_0_data <- filter(stai, group == 0)
@@ -379,21 +357,23 @@ perform_analysis <- function(data, group_label) {
 results_group_0 <- perform_analysis(group_0_data, "Group 0")
 results_group_1 <- perform_analysis(group_1_data, "Group 1")
 
-# Print results for Group 0
+# Results for Group 0
 cat(sprintf(
   "Group 0: Wilcoxon Test (n=%d, p=%.4f, W=%d, r=%.2f, 95%% CI [%.2f, %.2f])\n", 
   results_group_0$n, results_group_0$p_value, results_group_0$test_statistic, 
   results_group_0$effect_size_r, results_group_0$effect_size_ci[1], results_group_0$effect_size_ci[2]
 ))
 
-# Print results for Group 1
+# Results for Group 1
 cat(sprintf(
   "Group 1: Wilcoxon Test (n=%d, p=%.4f, W=%d, r=%.2f, 95%% CI [%.2f, %.2f])\n", 
   results_group_1$n, results_group_1$p_value, results_group_1$test_statistic, 
   results_group_1$effect_size_r, results_group_1$effect_size_ci[1], results_group_1$effect_size_ci[2]
 ))
 
-#### compare at baseline for groups 0 and 1
+##################################################
+#### Compare at baseline for groups 0 and 1 ######
+##################################################
 
 mann_whitney_result <- wilcox.test(
   baseline ~ group, 
@@ -419,12 +399,9 @@ df_normalized_EEG_beta$condition <- as.factor(df_normalized_EEG_beta$condition)
 
 
 ##### CHECK NORMALITY DISTRIBUTION
-# Assuming df_normalized has been loaded and scaled as described in your code
 
-# Extracting the metrics columns
+# Extracting the metrics
 metrics_EEG_beta_columns <- c("frontal_beta", "central_beta", "parietal_beta", "occipital_beta", "temporal_beta")
-
-# Convert metrics columns to numeric
 df_normalized_EEG_beta[, metrics_EEG_beta_columns] <- lapply(df_normalized_EEG_beta[, metrics_EEG_beta_columns], as.numeric)
 
 # Shapiro-Wilk test for normality
@@ -437,53 +414,47 @@ for (i in 1:length(metrics_EEG_beta_columns)) {
   qqline(df_normalized_EEG_beta[, metrics_EEG_beta_columns[i]], col = "red")
 }
 
-# Print Shapiro-Wilk test results
+# Shapiro-Wilk test results
 names(shapiro_results_beta) <- metrics_EEG_beta_columns
 print(shapiro_results_beta)
 
 ########### APPLY WILCOXON SIGNED RANKS BECAUSE OF NON NORMAL DISTRIBUTION
 
-# Normalize specified columns
 df_normalized_EEG_beta <- scale(df_EEG_beta[, c("frontal_beta", "central_beta", "parietal_beta", "occipital_beta", "temporal_beta")])
 df_normalized_EEG_beta <- data.frame(df_normalized_EEG_beta, condition = df_EEG_beta$condition, ID = df_EEG_beta$ID)
 
-# Ensure 'condition' is numeric
 df_normalized_EEG_beta$condition <- as.numeric(df_normalized_EEG_beta$condition)
 df_normalized_EEG_beta$group <- as.factor(df_EEG_beta$group)
 
-# # Invert 0 and 1 in 'condition' and 'group'
-# df_normalized_EEG_beta$condition <- ifelse(df_normalized_EEG_beta$condition == 0, 1, 0)
-# df_normalized_EEG_beta$group <- ifelse(df_normalized_EEG_beta$group == 0, 1, 0)
-
-# Extracting the metrics columns
+# Extracting the metrics
 metrics_EEG_beta_columns <- c("frontal_beta", "central_beta", "parietal_beta", "occipital_beta", "temporal_beta")
 
-# Melt the data for easier processing
+# Melt the data
 melted_data_EEG_beta <- reshape2::melt(df_normalized_EEG_beta, id.vars = c("ID", "condition", "group"))
 #write.csv(melted_data_EEG_beta, "/Users/idil.sezer/Desktop/PhD/DATA_Paul/melted_data_EEG_beta_new.csv", row.names= FALSE)
 
-# Initialize lists to store results
+# Lists to store results
 wilcox_results_within_group <- list()
 adjusted_p_values_within_group <- data.frame(metric = character(), p_value = numeric(), test_statistic = numeric(), cliffs_delta = numeric(), ci_lower = numeric(), ci_upper = numeric(), stringsAsFactors = FALSE)
 
-# Perform Wilcoxon signed-rank tests within each group across metrics
+# Wilcoxon signed-rank tests within each group across metrics
 for (group in unique(df_normalized_EEG_beta$group)) {
   for (metric in metrics_EEG_beta_columns) {
     # Get data for the specified group and metric
     data_condition_0 <- df_normalized_EEG_beta[df_normalized_EEG_beta$condition == 0 & df_normalized_EEG_beta$group == group, metric]
     data_condition_1 <- df_normalized_EEG_beta[df_normalized_EEG_beta$condition == 1 & df_normalized_EEG_beta$group == group, metric]
     
-    # Perform the Wilcoxon signed-rank test
+    # Wilcoxon signed-rank test
     set.seed(123)
     result_within_group <- wilcox.test(data_condition_0, data_condition_1, paired = TRUE)
     
     # Calculate Cliff's delta
     cliffs_delta_result <- cliff.delta(data_condition_0, data_condition_1, paired = TRUE)
     
-    # Store the test result in the list
+    # Store result in the list
     wilcox_results_within_group[[paste(metric, "Group", group)]] <- result_within_group
     
-    # Store the results in the data frame
+    # Store the results in the df
     adjusted_p_values_within_group <- rbind(
       adjusted_p_values_within_group, 
       data.frame(
@@ -498,7 +469,7 @@ for (group in unique(df_normalized_EEG_beta$group)) {
   }
 }
 
-# Adjust p-values for multiple comparisons within each group using FDR
+# Adjust p-values with FDR
 adjusted_p_values_within_group$adjusted_p_value_fdr <- p.adjust(adjusted_p_values_within_group$p_value, method = "fdr")
 
 # Print the adjusted p-values with test statistics, Cliff's delta, and confidence intervals
@@ -510,18 +481,14 @@ print(adjusted_p_values_within_group)
 
 df_high_alpha <- read.csv('../data/EEG_high_alpha_regions_stats.csv')
 
-# df_high_alpha <- df_high_alpha %>%
-#   filter(!ID %in% c(18, 19, 21, 22, 25, 27, 29))
-
-# Ensure 'condition' is numeric
 df_high_alpha$condition <- as.numeric(df_high_alpha$condition)
 df_high_alpha$group <- as.factor(df_high_alpha$group)
 
 metrics_high_alpha_columns <- unique(df_high_alpha$variable)
 
-# Function to remove outlier IDs based on IQR and print aberrant rows
+# Function to remove outlier IDs based on 5-95th
 remove_outlier_ids_iqr <- function(df, value_col) {
-  # Function to detect outliers using IQR
+
   is_outlier <- function(s) {
     Q1 <- quantile(s, 0.05, na.rm = TRUE)
     Q3 <- quantile(s, 0.95, na.rm = TRUE)
@@ -531,26 +498,26 @@ remove_outlier_ids_iqr <- function(df, value_col) {
     return(!(s >= lower_bound & s <= upper_bound))
   }
   
-  # Apply outlier detection and create a logical vector
+  # Apply outlier detection
   outlier_flags <- is_outlier(df[[value_col]])
   
-  # Get the IDs corresponding to outliers
+  # Get the outlier IDs
   outlier_ids <- df$ID[outlier_flags]
   
-  # Print aberrant data (outliers) based on IDs
+  # IDs rows
   if (length(outlier_ids) > 0) {
     outliers <- df[df$ID %in% outlier_ids, ]
     print("Aberrant data detected (outliers based on ID):")
     print(outliers)
   }
   
-  # Remove all rows corresponding to outlier IDs
+  # Remove all rows of outlier ID
   df_cleaned <- df[!df$ID %in% outlier_ids, ]
   
   return(df_cleaned)
 }
 
-# Remove outliers based on IDs (before entering the loop)
+# Remove outliers
 df_high_alpha_cleaned <- df_high_alpha
 for (metric in metrics_high_alpha_columns) {
   df_high_alpha_cleaned <- remove_outlier_ids_iqr(df_high_alpha_cleaned, "value")
@@ -558,13 +525,12 @@ for (metric in metrics_high_alpha_columns) {
 
 df_high_alpha <- df_high_alpha_cleaned
 
-# Remove outliers based on IDs (before scaling)
 df_high_alpha_cleaned <- df_high_alpha
 for (metric in metrics_high_alpha_columns) {
   df_high_alpha_cleaned <- remove_outlier_ids_iqr(df_high_alpha_cleaned, "value")
 }
 
-# Scale each variable's values (across both condition and group)
+# Scale
 df_high_alpha_cleaned <- df_high_alpha_cleaned %>%
   group_by(variable) %>%
   mutate(value_scaled = scale(value)) %>%
@@ -584,7 +550,7 @@ high_alpha_results <- data.frame(
   stringsAsFactors = FALSE
 )
 
-# Perform paired Wilcoxon signed-rank test and calculate Cliff's delta for each metric and group
+# Paired Wilcoxon signed-rank test and Cliff's delta for each metric and group
 for (group in unique(df_high_alpha_cleaned$group)) {
   
   for (metric in metrics_high_alpha_columns) {
@@ -621,35 +587,33 @@ for (group in unique(df_high_alpha_cleaned$group)) {
   }
 }
 
-# Adjust p-values using FDR method within each group separately
+# Adjust p-values using FDR
 high_alpha_results <- high_alpha_results %>%
   group_by(group) %>%
   mutate(adjusted_p_value_fdr = p.adjust(p_value, method = "fdr")) %>%
   ungroup()
 
-# Print the results
+# Results
 print("Wilcoxon test results with Cliff's delta and FDR adjusted p-values (per group):")
 print(high_alpha_results)
 
 
 ### GLMM
 
-# Read the dataset
 corrs <- read_excel("../data/biomarkers_GLMM.xlsx")
 
-# Filter for condition = 0 and remove specific variables
+# Filter for condition = 0 (zen garden)
 df_filtered <- corrs %>%
   dplyr::filter(condition == 0) %>%
-  dplyr::filter(variable != 'tonic_mean', variable != 'phasic_mean')
 
-# Pivot data to wide format
+
+# Pivot
 df_wide <- df_filtered %>%
   tidyr::pivot_wider(names_from = variable, values_from = value)
 
-# Fit a generalized linear mixed model (GLMM)
+# Fit GLMM
 model <- lm(score ~ LF_avg + HF_avg + Fratio_avg, data = df_wide)
 
-# Print model summary
 model_summary <- summary(model)
 print(model_summary)
 
@@ -657,8 +621,6 @@ print(model_summary)
 model_results <- broom::tidy(model)
 
 # Calculate Cohen's d for each predictor
-# Note: Cohen's d here is adapted to continuous predictors by standardizing variables.
-# Standardize predictors and response
 df_standardized <- df_wide %>%
   dplyr::mutate(across(c(LF_avg, HF_avg, Fratio_avg, score), scale))
 
@@ -668,18 +630,17 @@ model_standardized <- lm(score ~ LF_avg + HF_avg + Fratio_avg, data = df_standar
 # Extract Cohen's d as standardized coefficients
 standardized_results <- broom::tidy(model_standardized) %>%
   dplyr::mutate(
-    cohen_d = estimate, # Standardized coefficients are equivalent to Cohen's d
+    cohen_d = estimate,
     conf.low = confint(model_standardized)[, 1], # Confidence interval lower bound
     conf.high = confint(model_standardized)[, 2] # Confidence interval upper bound
   )
 
-# Print the HRV results
 print(standardized_results)
 
 
 library(ggplot2)
-library(ggpubr)  # For stat_regline_equation
-library(wesanderson)  # For the color palette
+library(ggpubr)
+library(wesanderson)
 
 # Fit the model
 model <- lm(score ~ Fratio_avg, data = df_wide)
