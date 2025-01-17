@@ -152,19 +152,6 @@ results_df$fdr_corrected_pvalue <- p.adjust(results_df$p_value, method = "fdr")
 # Print the results
 print("Results for all participants:")
 print(results_df)
-              # metric sample_size test_statistic      p_value effect_size effect_size_ci_lower
-# V         LF_avg          27            374 1.043081e-07  0.69547325           0.42647565
-# V1        HF_avg          27            351 1.879036e-05  0.51440329           0.21617347
-# V2    Fratio_avg          27            300 6.450757e-03  0.37722908           0.05840121
-# V3 midline_alpha          27            219 4.846056e-01  0.02880658          -0.27892283
-# V4  midline_beta          27            328 4.272312e-04  0.22359396          -0.09370524
-# effect_size_ci_upper          fdr
-# V             0.8514434 5.215406e-07
-# V1            0.7248359 4.697591e-05
-# V2            0.6262256 8.063447e-03
-# V3            0.3311709 4.846056e-01
-# V4            0.4996601 7.120520e-04
-
 
 
 ##### Within group comparison with test statistic, effect size, confidence intervals
@@ -254,29 +241,6 @@ results_df$fdr <- p.adjust(results_df$p_value, method = "fdr")
 print("Adjusted p-values and statistics within each group:")
 print(results_df)
 
-# metric sample_size test_statistic                     p_value     effect_size effect_size_ci_lower
-# V          LF_avg Group 0          16            136 3.051758e-05  0.74218750           0.38056886
-# V1         HF_avg Group 0          16            130 4.272461e-04  0.57812500           0.17412810
-# V2     Fratio_avg Group 0          16            126 1.312256e-03  0.57031250           0.16539575
-# V3  midline_alpha Group 0          16             84 4.331970e-01  0.06250000          -0.34228063
-# V4   midline_beta Group 0          16            121 4.180908e-03  0.25000000          -0.16667090
-# V5         LF_avg Group 1          11             63 4.882812e-03  0.58677686           0.06090281
-# V11        HF_avg Group 1          11             57 3.222656e-02  0.45454545          -0.06915376
-# V21    Fratio_avg Group 1          11             40 5.771484e-01  0.07438017          -0.42996054
-# V31 midline_alpha Group 1          11             34 9.658203e-01 -0.04132231          -0.50664452
-# V41  midline_beta Group 1          11             53 8.300781e-02  0.20661157          -0.25377013
-# effect_size_ci_upper          fdr
-# V              0.9069283 0.0003051758
-# V1             0.8155434 0.0021362305
-# V2             0.8106913 0.0043741862
-# V3             0.4477133 0.5414962769
-# V4             0.5909119 0.0097656250
-# V5             0.8576777 0.0097656250
-# V11            0.7818427 0.0537109375
-# V21            0.5433409 0.6412760417
-# V31            0.4426433 0.9658203125
-# V41            0.5906715 0.1185825893
-
 
 #########################################################
 ################# STAIY scores ##########################
@@ -290,13 +254,9 @@ data_order_1 <- filter(stai, order == 1)
 
 paired_data <- inner_join(data_order_0, data_order_1, by = "Participant", suffix = c(".0", ".1"))
 
+# Wilcoxon signed rank test with continuity correction
 wilcox.test(paired_data$score.0, paired_data$score.1, paired = TRUE)
 
-# Wilcoxon signed rank test with continuity correction
-# 
-# data:  paired_data$score.0 and paired_data$score.1
-# V = 230, p-value = 0.02291
-# alternative hypothesis: true location shift is not equal to 0
 
 mean_score_0 <- mean(paired_data$score.0)
 sd_score_0 <- sd(paired_data$score.0)
@@ -545,31 +505,6 @@ adjusted_p_values_within_group$adjusted_p_value_fdr <- p.adjust(adjusted_p_value
 print("Adjusted p-values with test statistics, Cliff's delta, and confidence intervals:")
 print(adjusted_p_values_within_group)
 
-#           metric            p_value     test_statistic cliffs_delta   ci_lower  ci_upper
-# V    frontal_beta Group 0 5.065918e-02            106    0.1875000 -0.2272603 0.5446818
-# V1   central_beta Group 0 9.155273e-05            134    0.2812500 -0.1405490 0.6166388
-# V2  parietal_beta Group 0 4.272461e-04            130    0.1718750 -0.2419293 0.5327796
-# V3 occipital_beta Group 0 3.356934e-03            122    0.1796875 -0.2398453 0.5426679
-# V4  temporal_beta Group 0 4.272461e-04            130    0.3046875 -0.1258217 0.6386257
-# V5   frontal_beta Group 1 2.441406e-02             58    0.2561983 -0.2574606 0.6569664
-# V6   central_beta Group 1 6.738281e-02             54    0.2066116 -0.2564721 0.5925500
-# V7  parietal_beta Group 1 1.474609e-01             50    0.1074380 -0.3832249 0.5508096
-# V8 occipital_beta Group 1 6.738281e-02             54    0.1735537 -0.3029549 0.5806394
-# V9  temporal_beta Group 1 2.929687e-03             64    0.2066116 -0.3050751 0.6257282
-
-# adjusted_p_value_fdr
-# V          0.0723702567 
-# V1         0.0009155273
-# V2         0.0014241536
-# V3         0.0067138672
-# V4         0.0014241536
-# V5         0.0406901042
-# V6         0.0748697917
-# V7         0.1474609375
-# V8         0.0748697917
-# V9         0.0067138672
-
-
 
 ########## high alpha statistics
 
@@ -696,23 +631,6 @@ high_alpha_results <- high_alpha_results %>%
 print("Wilcoxon test results with Cliff's delta and FDR adjusted p-values (per group):")
 print(high_alpha_results)
 
-# metric               p_value test_statistic cliffs_delta ci_lower ci_upper group adjusted_p_value_fdr
-# <chr>                  <dbl>          <dbl>        <dbl>    <dbl>    <dbl> <chr>                <dbl>
-#   1 frontal_high_alpha    0.495              82       0.0781   -0.329    0.461 0                  0.495 
-# 2 temporal_high_alpha   0.0214            112       0.109    -0.297    0.482 0                   0.0428
-# 3 central_high_alpha    0.0290            110       0.156    -0.258    0.522 0                   0.0435
-# 4 parietal_high_alpha   0.0214            112       0.125    -0.284    0.495 0                   0.0428
-# 5 occipital_high_alpha  0.0110            116       0.156    -0.256    0.520 0                   0.0428
-# 6 midline_high_alpha    0.252              91       0.0781   -0.325    0.457 0                   0.303 
-# 7 frontal_high_alpha    0.322              17      -0.24     -0.667    0.305 1                   1     
-# 8 temporal_high_alpha   0.922              29       0.0400   -0.459    0.519 1                   1     
-# 9 central_high_alpha    1                  27       0.04     -0.467    0.527 1                   1     
-# 10 parietal_high_alpha   0.922              26       0.06     -0.417    0.511 1                   1     
-# 11 occipital_high_alpha  0.625              33       0.0400   -0.469    0.529 1                   1     
-# 12 midline_high_alpha    0.695              23       0.02     -0.441    0.473 1                   1  
-
-
-
 
 ### GLMM
 
@@ -757,11 +675,6 @@ standardized_results <- broom::tidy(model_standardized) %>%
 
 # Print the HRV results
 print(standardized_results)
-# Estimate Std. Error t value Pr(>|t|)   
-# (Intercept)  0.17142    0.08457   2.027  0.05441 . 
-# LF_avg      -0.15147    0.11081  -1.367  0.18488   
-# HF_avg      -0.03292    0.08785  -0.375  0.71134   
-# Fratio_avg   0.27881    0.09630   2.895  0.00816 **
 
 
 library(ggplot2)
