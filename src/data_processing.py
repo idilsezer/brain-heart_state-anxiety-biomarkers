@@ -4,8 +4,6 @@ sys.path.append("../../src")
 import pandas as pd
 import numpy as np
 
-import video_analyses
-
 
 ################### EEG DATA PROCESSING ###################
 
@@ -129,6 +127,52 @@ import video_analyses
 #         'lgamma_averages': lgamma_averages_dict,
 #         'alpha_theta_ratio_avg': alpha_theta_ratio_avg_dict
 #     }
+
+def extract_column_from_dict(video_dict, column_of_interest, prefix=''):
+    """function to extract a column of interest from a dictionary of df
+
+    Parameters
+    ----------
+    video_dict : dict
+        dictionary of all participants' df
+    column_of_interest : str
+        name of the column of interest (e.g. 'LF_avg', 'HF_avg', 'LF_HF_ratio'...)
+    prefix : str, optional
+        prefix to add to the column of interest (e.g. 'zen_garden', 'neutral_city'...)
+    Returns
+    -------
+    df
+        a single df with the column of interest for all participants
+    """
+    result_df = pd.DataFrame()
+
+    for participant_id, df in video_dict.items():
+        new_column_name = f'{prefix}_{column_of_interest}_{participant_id}' if prefix else f'{column_of_interest}_{participant_id}'
+        result_df[new_column_name] = df[column_of_interest]
+
+    return result_df
+
+
+def add_avg_std_time_columns(df, column_of_interest, time=True):
+    """generate Avg Std and time columns for a given df
+
+    Parameters
+    ----------
+    df : dataframe
+        df of all participants' single type of data
+    column_of_interest : str
+        name of the column of interest (e.g. 'LF_avg', 'HF_avg', 'LF_HF_ratio'...)
+
+    Returns
+    -------
+    df 
+        df with added Avg, Std, and time columns
+    """
+    df['Avg'] = df.filter(like=column_of_interest).mean(axis=1)
+    df['Std'] = df.filter(like=column_of_interest).std(axis=1)
+    if time == True:
+        df['time'] = range(60, 60 + len(df) * 5, 5)
+    return df
 
 
 def calculate_average_by_ID_all(alpha_averages, alpha_averages_2D, beta_averages, beta_averages_2D, segmentation, relaxed_IDs):
@@ -321,10 +365,10 @@ def divide_ECG_into_groups(df_3D, df_2D, subgroups, ECG_param):
     relaxed_df_2D = df_2D[relx_df_2D]   
 
     # Add average and standard deviation columns
-    unresponsive_df_3D = video_analyses.add_avg_std_time_columns(unresponsive_df_3D, ECG_param)
-    unresponsive_df_2D = video_analyses.add_avg_std_time_columns(unresponsive_df_2D, ECG_param)
-    relaxed_df_3D = video_analyses.add_avg_std_time_columns(relaxed_df_3D, ECG_param)
-    relaxed_df_2D = video_analyses.add_avg_std_time_columns(relaxed_df_2D, ECG_param)
+    unresponsive_df_3D = add_avg_std_time_columns(unresponsive_df_3D, ECG_param)
+    unresponsive_df_2D = add_avg_std_time_columns(unresponsive_df_2D, ECG_param)
+    relaxed_df_3D = add_avg_std_time_columns(relaxed_df_3D, ECG_param)
+    relaxed_df_2D = add_avg_std_time_columns(relaxed_df_2D, ECG_param)
 
     return unresponsive_df_3D, unresponsive_df_2D, relaxed_df_3D, relaxed_df_2D
 

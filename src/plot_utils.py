@@ -15,8 +15,6 @@ from statsmodels.stats.multitest import multipletests
 # import statsmodels.api as sm
 import matplotlib.patches as patches
 
-
-import video_analyses
 import mne
 
 plt.rcParams['font.family'] = 'sans-serif'
